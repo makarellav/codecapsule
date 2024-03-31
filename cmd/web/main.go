@@ -1,18 +1,26 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"flag"
+	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/makarellav/codecapsule/internal/models"
 	"log/slog"
 	"net/http"
 	"os"
+	"text/template"
+	"time"
 )
 
 type application struct {
-	logger   *slog.Logger
-	snippets *models.SnippetModel
+	logger         *slog.Logger
+	snippets       *models.SnippetModel
+	users          *models.UserModel
+	templateCache  map[string]*template.Template
+	sessionManager *scs.SessionManager
 }
 
 func main() {
@@ -27,18 +35,51 @@ func main() {
 
 	logger.Info("opening db", "dsn", *dsn)
 	db, err := openDB(*dsn)
-	defer db.Close()
-
-	app := &application{logger: logger, snippets: &models.SnippetModel{DB: db}}
 
 	if err != nil {
-		app.logger.Error(err.Error())
+		logger.Error(err.Error())
 
 		os.Exit(1)
 	}
 
-	app.logger.Info("starting the server", "addr", *addr)
-	err = http.ListenAndServe(*addr, app.routes())
+	defer db.Close()
+
+	templateCache, err := newTemplateCache()
+
+	if err != nil {
+		logger.Error(err.Error())
+
+		os.Exit(1)
+	}
+
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db)
+	sessionManager.Lifetime = 12 * time.Hour
+
+	app := &application{
+		logger:         logger,
+		snippets:       &models.SnippetModel{DB: db},
+		users:          &models.UserModel{DB: db},
+		templateCache:  templateCache,
+		sessionManager: sessionManager,
+	}
+
+	tlsConfig := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
+
+	srv := http.Server{
+		Addr:         *addr,
+		Handler:      app.routes(),
+		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		TLSConfig:    tlsConfig,
+		IdleTimeout:  1 * time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	app.logger.Info("starting the server", "addr", srv.Addr)
+	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 
 	app.logger.Error(err.Error())
 	os.Exit(1)
