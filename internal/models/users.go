@@ -82,5 +82,11 @@ func (um *UserModel) Authenticate(email, password string) (int, error) {
 }
 
 func (um *UserModel) Exists(id int) (bool, error) {
-	return false, nil
+	stmt := `SELECT EXISTS(SELECT true FROM users WHERE id = ?)`
+
+	var exists bool
+
+	err := um.DB.QueryRow(stmt, id).Scan(&exists)
+
+	return exists, err
 }
