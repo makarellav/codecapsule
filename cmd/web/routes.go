@@ -10,6 +10,8 @@ func (app *application) routes() http.Handler {
 
 	mux.Handle("GET /static/", http.FileServerFS(ui.Files))
 
+	mux.HandleFunc("GET /ping", ping)
+
 	mux.Handle("GET /{$}", app.sessionManager.LoadAndSave(app.csrf(app.authenticate(http.HandlerFunc(app.home)))))
 
 	mux.Handle("GET /snippets/{id}", app.sessionManager.LoadAndSave(app.csrf(app.authenticate(http.HandlerFunc(app.snippetView)))))

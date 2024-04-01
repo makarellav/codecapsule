@@ -15,10 +15,22 @@ import (
 	"time"
 )
 
+type snippetModel interface {
+	Insert(title string, content string, expires int) (int, error)
+	Get(id int) (*models.Snippet, error)
+	Latest() ([]*models.Snippet, error)
+}
+
+type userModel interface {
+	Insert(name, email, password string) error
+	Authenticate(email, password string) (int, error)
+	Exists(id int) (bool, error)
+}
+
 type application struct {
 	logger         *slog.Logger
-	snippets       *models.SnippetModel
-	users          *models.UserModel
+	snippets       snippetModel
+	users          userModel
 	templateCache  map[string]*template.Template
 	sessionManager *scs.SessionManager
 }
