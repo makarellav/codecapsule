@@ -15,6 +15,7 @@ import (
 type templateData struct {
 	Snippet         *models.Snippet
 	Snippets        []*models.Snippet
+	User            *models.User
 	CurrentYear     int
 	Form            any
 	Flash           string
@@ -39,6 +40,13 @@ type userSignupForm struct {
 type userLoginForm struct {
 	Email    string
 	Password string
+	validator.Validator
+}
+
+type changePasswordForm struct {
+	CurrentPassword    string
+	NewPassword        string
+	ConfirmNewPassword string
 	validator.Validator
 }
 

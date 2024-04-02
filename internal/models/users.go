@@ -90,3 +90,59 @@ func (um *UserModel) Exists(id int) (bool, error) {
 
 	return exists, err
 }
+
+func (um *UserModel) Get(id int) (*User, error) {
+	stmt := `SELECT id, name, email, created FROM users WHERE id = ?`
+
+	var user User
+
+	err := um.DB.QueryRow(stmt, id).Scan(&user.ID, &user.Name, &user.Email, &user.Created)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrNoRecord
+		default:
+			return nil, err
+		}
+	}
+
+	return &user, nil
+}
+
+func (um *UserModel) UpdatePassword(id int, currentPassword, newPassword string) error {
+	stmt := `SELECT hashed_password FROM users WHERE id = ?`
+
+	var hash []byte
+
+	err := um.DB.QueryRow(stmt, id).Scan(&hash)
+
+	if err != nil {
+		return err
+	}
+
+	err = bcrypt.CompareHashAndPassword(hash, []byte(currentPassword))
+
+	if err != nil {
+		switch {
+		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
+			return ErrInvalidCredentials
+		default:
+			return err
+		}
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+
+	if err != nil {
+		return err
+	}
+
+	stmt = `UPDATE users SET hashed_password = ? WHERE id = ?`
+
+	args := []any{newHash, id}
+
+	_, err = um.DB.Exec(stmt, args...)
+
+	return err
+}

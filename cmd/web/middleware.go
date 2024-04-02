@@ -51,6 +51,8 @@ func (app *application) recoverer(next http.Handler) http.Handler {
 func (app *application) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !app.isAuthenticated(r) {
+			app.sessionManager.Put(r.Context(), "redirectURL", r.URL.Path)
+
 			http.Redirect(w, r, "/users/login", http.StatusSeeOther)
 
 			return

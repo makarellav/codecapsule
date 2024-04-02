@@ -25,6 +25,8 @@ type userModel interface {
 	Insert(name, email, password string) error
 	Authenticate(email, password string) (int, error)
 	Exists(id int) (bool, error)
+	Get(id int) (*models.User, error)
+	UpdatePassword(id int, currentPassword, newPassword string) error
 }
 
 type application struct {
@@ -33,11 +35,13 @@ type application struct {
 	users          userModel
 	templateCache  map[string]*template.Template
 	sessionManager *scs.SessionManager
+	debugMode      bool
 }
 
 func main() {
 	addr := flag.String("addr", ":4000", "HTTP network address")
 	dsn := flag.String("dsn", "root:password@/codecapsule?parseTime=true", "DSN")
+	isDebug := flag.Bool("debug", false, "Debug mode")
 
 	flag.Parse()
 
@@ -74,6 +78,7 @@ func main() {
 		users:          &models.UserModel{DB: db},
 		templateCache:  templateCache,
 		sessionManager: sessionManager,
+		debugMode:      *isDebug,
 	}
 
 	tlsConfig := &tls.Config{
